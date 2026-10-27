@@ -3336,6 +3336,26 @@ static bool UpdateImageObject(const Image &image, std::string &baseDir,
   return true;
 }
 
+// SI_TINYGLTF_IMGMIME_PATCH begin
+// Local SiSDK4 patch, absent upstream (checked up to v2.9.7): accept a base64
+// data URI of any MIME type, e.g. "data:image/ktx2;base64,". Unpatched, such an
+// image URI is mistaken for an external file name and the image loads empty.
+// SiGfx_PlugIn_GLTF_Loader.cpp refuses to build without this define.
+#define SI_TINYGLTF_IMGMIME_PATCH 1
+
+// Size of a "data:<mime>;base64," header at the start of `in`, or 0 when there
+// is none. Fills `mime` with <mime> when not null.
+static size_t SiDataURIHeaderSize(const std::string &in, std::string *mime) {
+  if (in.compare(0, 5, "data:") != 0) return 0;
+  const size_t semi = in.find(';', 5);
+  if (semi == std::string::npos || semi == 5) return 0;
+  if (in.find(',', 5) < semi) return 0;  // a comma first: no ";base64" part
+  if (in.compare(semi, 8, ";base64,") != 0) return 0;
+  if (mime) *mime = in.substr(5, semi - 5);
+  return semi + 8;
+}
+// SI_TINYGLTF_IMGMIME_PATCH end
+
 bool IsDataURI(const std::string &in) {
   std::string header = "data:application/octet-stream;base64,";
   if (in.find(header) == 0) {
@@ -3369,6 +3389,11 @@ bool IsDataURI(const std::string &in) {
 
   header = "data:application/gltf-buffer;base64,";
   if (in.find(header) == 0) {
+    return true;
+  }
+
+  // SI_TINYGLTF_IMGMIME_PATCH
+  if (SiDataURIHeaderSize(in, nullptr) != 0) {
     return true;
   }
 
@@ -3427,6 +3452,16 @@ bool DecodeDataURI(std::vector<unsigned char> *out, std::string &mime_type,
     header = "data:application/gltf-buffer;base64,";
     if (in.find(header) == 0) {
       data = base64_decode(in.substr(header.size()));
+    }
+  }
+
+  // SI_TINYGLTF_IMGMIME_PATCH
+  if (data.empty()) {
+    std::string mime;
+    const size_t headerSize = SiDataURIHeaderSize(in, &mime);
+    if (headerSize != 0) {
+      mime_type = mime;
+      data = base64_decode(in.substr(headerSize));
     }
   }
 
