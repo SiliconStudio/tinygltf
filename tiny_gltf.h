@@ -25,7 +25,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Version: - v2.9.*
+// Version: - v2.9.* + tolerate image MIME on uri patch by Silicon Studio Corporation
 // See https://github.com/syoyo/tinygltf/releases for release history.
 //
 // Tiny glTF loader is using following third party libraries:
@@ -3337,10 +3337,9 @@ static bool UpdateImageObject(const Image &image, std::string &baseDir,
 }
 
 // SI_TINYGLTF_IMGMIME_PATCH begin
-// Local SiSDK4 patch, absent upstream (checked up to v2.9.7): accept a base64
-// data URI of any MIME type, e.g. "data:image/ktx2;base64,". Unpatched, such an
-// image URI is mistaken for an external file name and the image loads empty.
-// SiGfx_PlugIn_GLTF_Loader.cpp refuses to build without this define.
+// accept a base64 data URI of any MIME type
+// e.g. "data:image/ktx2;base64,".
+// Unrecognized URI are mistaken for external file names otherwise.
 #define SI_TINYGLTF_IMGMIME_PATCH 1
 
 // Size of a "data:<mime>;base64," header at the start of `in`, or 0 when there
